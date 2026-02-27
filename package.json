@@ -1,0 +1,13 @@
+{
+  "name": "analytics-dashboard-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:api": ".venv/bin/python -m apps.api",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev": "sh -c 'npm run dev:api & npm run dev:web; wait'",
+    "test:api": ".venv/bin/python -m unittest discover -s apps/api/tests -v",
+    "test:web": "node apps/web/tests/evidenceNavigation.test.mjs && node apps/web/tests/pbpAdvancedFilters.test.mjs",
+    "test": "npm run test:api && npm run test:web"
+  }
+}
