@@ -3,11 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev:api": ".venv/bin/python -m apps.api",
-    "dev:web": "npm --prefix apps/web run dev",
-    "dev": "sh -c 'npm run dev:api & npm run dev:web; wait'",
-    "test:api": ".venv/bin/python -m unittest discover -s apps/api/tests -v",
-    "test:web": "node apps/web/tests/evidenceNavigation.test.mjs && node apps/web/tests/pbpAdvancedFilters.test.mjs",
+    "setup": "bash scripts/setup.sh",
+    "dev:api": "bash scripts/dev-api.sh",
+    "dev:web": "bash scripts/dev-web.sh",
+    "dev": "bash scripts/dev.sh",
+    "test:api": "bash scripts/test-api.sh",
+    "test:web": "bash scripts/test-web.sh",
     "test": "npm run test:api && npm run test:web"
   }
 }

@@ -32,7 +32,7 @@ function CollapseButton({ panelRef, collapsed, onCollapsedChange, title }) {
 }
 import { evidenceLabel, resolveEvidenceTarget } from "./evidenceNavigation";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 const UCSB_TEAM_ID = "2540";
 const PBP_TEAM_ID = "pbp";
@@ -85,6 +85,14 @@ async function fetchJson(url, options = {}, retries = 0) {
       attempt += 1;
     }
   }
+}
+
+function formatInsightErrorMessage(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (message.includes("OPENAI_API_KEY is not configured")) {
+    return "Insights are unavailable because `OPENAI_API_KEY` is not set in `.env` for the API server.";
+  }
+  return message;
 }
 
 function DataTable({ columns, rows, state, onChange, extraControls = null }) {
@@ -560,7 +568,7 @@ export default function App() {
       );
       setInsights(payload.insights || []);
     } catch (error) {
-      setInsightError(error.message);
+      setInsightError(formatInsightErrorMessage(error));
     } finally {
       setInsightLoading(false);
     }
