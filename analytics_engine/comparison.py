@@ -390,3 +390,4 @@ class ComparisonEngine:
                     message=f"[{ts}] Fatigue indicator: only {len(used_players)} UCSB players recorded in event stream",
                 )
             )
+

@@ -95,7 +95,27 @@ function formatInsightErrorMessage(error) {
   return message;
 }
 
-function DataTable({ columns, rows, state, onChange, extraControls = null }) {
+function getPerformanceColor(liveStats, seasonStatsPer, threshold) {
+ const stat = parseFloat(liveStats);
+  const per_game = parseFloat(seasonStatsPer);
+
+  // If data is missing or PPG is 0, don't apply color
+  if (isNaN(stat) || isNaN(per_game) || per_game === 0) {
+      return undefined;
+  }
+  
+  const diff = (stat - per_game) / per_game;
+
+  if (diff >= threshold) {
+      return "rgba(0, 255, 0, 0.2)"; 
+  } else if (diff <= -threshold) {
+      return "rgba(255, 0, 0, 0.2)"; 
+  }
+  
+  return undefined; 
+}
+
+function DataTable({ columns, rows, state, onChange, extraControls = null, getRowStyle }) {
   const rowRefs = useRef({});
 
   const sortedRows = useMemo(() => {
@@ -201,6 +221,7 @@ function DataTable({ columns, rows, state, onChange, extraControls = null }) {
                     }
                   }}
                   className={`${isSelected ? "selected" : ""} ${isHighlighted ? "highlighted" : ""}`.trim()}
+                  style={getRowStyle ? getRowStyle(row) : {}}
                   onClick={() =>
                     onChange({
                       selectedRowKey: row.row_key || "",
@@ -282,6 +303,8 @@ export default function App() {
   const [pbpError, setPbpError] = useState("");
 
   const [gameDataSubtab, setGameDataSubtab] = useState("live-stats");
+  const [performanceMetric, setPerformanceMetric] = useState("PTS");
+
   const [liveStats, setLiveStats] = useState(() => ({
     ucsb_team: { columns: [], rows: [] },
     ucsb_players: { columns: [], rows: [] },
@@ -1017,6 +1040,18 @@ export default function App() {
                   <span>
                     {activeLiveSide === "ucsb" ? "UCSB" : "Opponent"} live player rows: {livePlayerRows}
                   </span>
+                  <span style={{ marginLeft: "20px", marginRight: "10px" }}>
+                    Highlight Performance:
+                  </span>
+                  <select 
+                    value={performanceMetric} 
+                    onChange={(e) => setPerformanceMetric(e.target.value)}
+                    style={{ padding: "4px", borderRadius: "4px" }}
+                  >
+                    <option value="PTS">Points (PTS)</option>
+                    <option value="REB">Rebounds (REB)</option>
+                    <option value="AST">Assists (AST)</option>
+                  </select>
                 </div>
                 <DataTable
                   columns={livePlayersData.columns}
@@ -1031,6 +1066,71 @@ export default function App() {
                       }
                     }))
                   }
+                  getRowStyle={(row) => {
+                    try {
+                      const playerName = row["Player"];
+                      if (!playerName) return {};
+
+                      const seasonTeamRows = seasonPlayers[activeLiveSide].rows;
+                      const seasonPlayer = seasonTeamRows.find((p) => {
+                        const seasonName = p["Player"]; 
+                        if (!seasonName) return false;
+                        
+                        if (seasonName.includes(",")) {
+                            const [lastName, firstName] = seasonName.split(",").map(s => s.trim());
+                            const flippedName = `${firstName} ${lastName}`; 
+                            return flippedName === playerName;
+                        }
+                        
+                        return seasonName === playerName;
+                      });
+
+                      const statMapping = {
+                        "PTS": "PPG",
+                        "REB": "RPG",
+                        "AST": "APG"
+                      };
+
+                      const seasonStatsKey = statMapping[performanceMetric];
+
+                      if (seasonPlayer && seasonPlayer[seasonStatsKey]) {
+
+                        const liveValue = parseFloat(row[performanceMetric]) || 0;
+                        const liveMin = parseFloat(row["MIN"]) || 0; 
+                        const seasonAvgValue = parseFloat(seasonPlayer[seasonStatsKey]);
+
+                        const seasonTotalMin = parseFloat(seasonPlayer["MIN"]) || 0;
+                        const gpString = seasonPlayer["GP-GS"] || "";
+                        const gp = parseFloat(gpString.split("-")[0]) || 0; // Grabs the first number before the dash
+                        const seasonMpg = gp > 0 ? seasonTotalMin / gp : 0;                       
+                        
+                        // check if theyve played
+                        if (liveMin > 0 && seasonMpg > 0) {
+                          
+                          const projectedVal = (liveValue / liveMin) * seasonMpg;
+                          
+                          let threshold = .25;
+                          if (performanceMetric === "REB") {
+                            threshold = .35; 
+                          } else if (performanceMetric === "AST") {
+                            threshold = .35
+                          }
+                          
+                          const color = getPerformanceColor(projectedVal, seasonAvgValue, threshold);
+                          
+                          if (color) {
+                            return { backgroundColor: color };
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error("Cant change color", error);
+                    }
+                    
+                    return {};
+                  }}
+
+                  
                 />
               </>
             ) : (
