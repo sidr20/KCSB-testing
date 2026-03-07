@@ -1,66 +1,142 @@
-# Analytics Dashboard
+# Basketball Live Analytics Toolkit
 
 Monorepo with:
-- Python API: `apps/api`
-- React/Vite web UI: `apps/web`
 
-## Prereqs
-- Python `3.9+` (`python3 --version`)
-- Node.js + npm (`node -v`, `npm -v`)
+- Python API in [`apps/api`](/Users/quinnkoster/Developer/basketball-live-analytics-toolkit/apps/api)
+- React/Vite frontend in [`apps/web`](/Users/quinnkoster/Developer/basketball-live-analytics-toolkit/apps/web)
 
-## Setup
-Recommended (one command):
+Current stack:
+
+- Python `http.server` backend
+- React 18 frontend built with Vite
+- Local Python virtualenv in `.venv`
+- npm-managed frontend dependencies in `apps/web`
+- GitHub Actions CI in [`.github/workflows/ci.yml`](/Users/quinnkoster/Developer/basketball-live-analytics-toolkit/.github/workflows/ci.yml)
+
+## Local setup
+
+Requirements:
+
+- Python 3.9+
+- Node.js and npm
+
+From the repo root:
+
 ```bash
 npm run setup
 ```
 
-Manual equivalent:
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements.txt
-npm --prefix apps/web install
-cp -n .env.example .env
-```
+This creates `.venv`, installs Python dependencies, installs frontend dependencies, and creates `.env` from `.env.example` if needed.
 
-## Environment
-Create `.env` (copy from `.env.example`) and set:
-- `OPENAI_API_KEY` (required for `/api/insights`)
+Use the existing repo layout and commands when making changes:
 
-Optional:
-- `API_HOST` (default `0.0.0.0`)
-- `API_PORT` (default `8000`)
-- `OPENAI_MODEL`, `OPENAI_BASE_URL`
-- `VITE_API_BASE_URL` (override the API base URL; normally not needed in dev)
+- backend entrypoint: `python -m apps.api`
+- frontend dev server: `npm --prefix apps/web run dev`
+- root helper commands: `npm run dev`, `npm run test`, `npm run test:ci`
 
-## Run (dev)
+Frontend changes should fit the current app structure in [`apps/web/src/App.jsx`](/Users/quinnkoster/Developer/basketball-live-analytics-toolkit/apps/web/src/App.jsx) and the existing Vite setup.
+
+## Local development
+
+Run both API and frontend:
+
 ```bash
 npm run dev
 ```
 
-Or separately:
+Or run them separately:
+
 ```bash
 npm run dev:api
 npm run dev:web
 ```
 
-Dev routing:
-- Vite proxies `/api/*` to `http://localhost:${API_PORT:-8000}`.
-- The web app defaults to relative `/api/...` in dev; set `VITE_API_BASE_URL` only if you want a different backend.
+Default local URLs:
+
+- API: `http://127.0.0.1:8000`
+- Web: `http://127.0.0.1:5173`
+
+## Environment
+
+Set these in `.env` for local API usage:
+
+- `OPENAI_API_KEY` for `/api/insights`
+- `API_HOST` optional, defaults to `0.0.0.0`
+- `API_PORT` optional, defaults to `8000`
+
+Optional frontend env:
+
+- `VITE_API_BASE_URL`
+
+In local dev, leave `VITE_API_BASE_URL` unset unless you want the frontend to call a non-local backend.
 
 ## Tests
+
+Run the full local CI-equivalent suite:
+
 ```bash
-npm run test
+npm run test:ci
 ```
 
-## Troubleshooting
-- `sh: .venv/bin/python: No such file or directory`
-  - Run `npm run setup` (or create `.venv` and install `requirements.txt`).
-- `sh: vite: command not found`
-  - Run `npm run setup` (or `npm --prefix apps/web install`).
-- `/api/insights` fails with `OPENAI_API_KEY is not configured`
-  - Set `OPENAI_API_KEY` in `.env` and restart the API.
-- `EADDRINUSE` / port already in use
-  - Change `API_PORT` in `.env` (or free the port), then restart `npm run dev`.
-- CORS / wrong API base in dev
-  - Prefer relative `/api/...` (Vite proxy). Only set `VITE_API_BASE_URL` if you intentionally want to bypass the proxy.
+Or run the main test commands individually:
+
+```bash
+npm run test
+npm --prefix apps/web run build
+```
+
+GitHub Actions runs CI on pushes to `main` and on pull requests. The workflow checks:
+
+- API entrypoint import
+- Python backend tests
+- frontend tests
+- production web build
+
+## Using the deployed app
+
+Frontend:
+
+- Deploy [`apps/web`](/Users/quinnkoster/Developer/basketball-live-analytics-toolkit/apps/web) on Vercel
+- Set the Vercel project root directory to `apps/web`
+
+Backend:
+
+- Deploy the Python API on Render as a Web Service
+- Start command:
+
+```bash
+python -m apps.api
+```
+
+Frontend production env:
+
+- Set `VITE_API_BASE_URL` to your deployed backend base URL, for example `https://your-service.onrender.com`
+
+## Contributing
+
+Do not push directly to `main`.
+
+Use a branch instead:
+
+```bash
+git switch -c your-branch-name
+```
+
+Then commit, push the branch, and open a pull request:
+
+```bash
+git push -u origin your-branch-name
+```
+
+Before pushing, run:
+
+```bash
+npm run test:ci
+```
+
+This matches the GitHub Actions CI checks and is the fastest way to catch repo-setup issues locally.
+
+## Notes
+
+- The frontend uses relative `/api/...` requests in local development through the Vite proxy.
+- Some data is cached locally in development. If you want a clean local state, remove `data/` and any local SQLite file.
