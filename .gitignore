@@ -14,6 +14,9 @@ apps/web/node_modules/
 # Build outputs
 apps/web/dist/
 
+# Cached/source data
+data/
+
 # Editor / OS files
 .DS_Store
 .cursor/
