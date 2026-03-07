@@ -9,6 +9,7 @@
     "dev": "bash scripts/dev.sh",
     "test:api": "bash scripts/test-api.sh",
     "test:web": "bash scripts/test-web.sh",
-    "test": "npm run test:api && npm run test:web"
+    "test": "npm run test:api && npm run test:web",
+    "test:ci": "bash scripts/test-ci.sh"
   }
 }
