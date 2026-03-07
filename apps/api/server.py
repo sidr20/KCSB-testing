@@ -96,11 +96,15 @@ PDF_DATA_ROOT = REPO_ROOT / "analytics_engine" / "data"
 PDF_TEAM_FILES: Dict[str, str] = {
     "ucsb": "ucsb-season-stats.pdf",
     "2540": "ucsb-season-stats.pdf",
+    "ucsd": "ucsd-season-stats.pdf",
+    "28": "ucsd-season-stats.pdf",
     "ucr": "ucr-season-stats.pdf",
 }
 PDF_TEAM_NAMES: Dict[str, str] = {
     "ucsb": "UC Santa Barbara",
     "2540": "UC Santa Barbara",
+    "ucsd": "UC San Diego",
+    "28": "UC San Diego",
     "ucr": "UC Riverside",
 }
 
