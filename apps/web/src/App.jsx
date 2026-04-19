@@ -1291,6 +1291,7 @@ export default function App() {
     }
     return Array.from(opts);
   }, [pbpAdvancedFiltersDraft.teamIds, pbpData.rows]);
+
   const pbpTypeOptions = useMemo(() => {
     const opts = new Set();
     for (const row of pbpData.rows) {
@@ -1708,6 +1709,7 @@ export default function App() {
                     <option value="PTS">Points (PTS)</option>
                     <option value="REB">Rebounds (REB)</option>
                     <option value="AST">Assists (AST)</option>
+                    <option value="PIE">Player Impact(PIE)</option>
                   </select>
                 </div>
                 <DataTable
@@ -1727,7 +1729,18 @@ export default function App() {
                     try {
                       const playerName = row["Player"];
                       if (!playerName) return {};
+    
+                      if (performanceMetric === "PIE") {
+                        const pieString = row["PIE"] || "0%";
+                        const pieValue = parseFloat(pieString) / 100; 
 
+                        if (pieValue >= 0.12) { 
+                          return { backgroundColor: "rgba(0, 255, 0, 0.3)" }; 
+                        } else if (pieValue <= 0.05 && pieValue > 0) {
+                          return { backgroundColor: "rgba(255, 0, 0, 0.2)" };
+                        }
+                        return {};
+                      }
                       const seasonTeamRows = seasonPlayers[activeLiveSide].rows;
                       const seasonPlayer = seasonTeamRows.find((p) => {
                         const seasonName = p["Player"]; 

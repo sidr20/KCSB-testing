@@ -1345,9 +1345,18 @@ LIVE_TEAM_COLUMNS = [
 ]
 LIVE_PLAYER_COLUMNS = [
     "row_key", "team_id", "Player", "GP", "MIN", "PTS", "REB", "AST",
-    "STL", "BLK", "TO", "FG_PCT", "FG3_PCT", "FT_PCT", "PF",
+    "STL", "BLK", "TO", "FG_PCT", "FG3_PCT", "FT_PCT", "PF", "PIE",
 ]
 
+
+def calculate_pie_numerator(s: Dict[str, int]) -> float:
+    reb = s.get("oreb", 0) + s.get("dreb", 0)
+    return(
+        s.get("pts", 0) + s.get("fgm", 0) + s.get("ftm", 0) 
+        - s.get("fga", 0) - s.get("fta", 0) + s.get("dreb", 0) 
+        + (0.5 * s.get("oreb", 0)) + s.get("ast", 0) + s.get("stl", 0) 
+        + (0.5 * s.get("blk", 0)) - s.get("pf", 0) - s.get("to", 0)
+    )
 
 def _normalize_team_id_safe(value: Optional[str]) -> Optional[str]:
     """Return normalized team_id or None if value is empty/invalid (avoids ValueError)."""
@@ -1651,7 +1660,7 @@ def _live_team_rows(team_id: str, rows: List[Dict[str, Any]]) -> List[Dict[str, 
     return out
 
 
-def _live_player_rows(team_id: str, rows: List[Dict[str, Any]], minutes_map: Dict[str, str] = None) -> List[Dict[str, Any]]:
+def _live_player_rows(team_id: str, rows: List[Dict[str, Any]], minutes_map: Dict[str, str] = None, game_pie_denom: float = 1.0) -> List[Dict[str, Any]]:
     if minutes_map is None:
         minutes_map = {}
     """Build player-level stat rows from PBP for one team. Columns match season player table."""
@@ -1683,6 +1692,8 @@ def _live_player_rows(team_id: str, rows: List[Dict[str, Any]], minutes_map: Dic
         fg3a = int(stats.get("3pa", 0))
         ftm = int(stats.get("ftm", 0))
         fta = int(stats.get("fta", 0))
+        player_num = calculate_pie_numerator(stats)
+        pie_pct = (player_num / game_pie_denom) if game_pie_denom > 0 else 0
         rk = unique_row_key(f"live_{tid}_player_{aid}", seen)
         out.append({
             "row_key": rk,
@@ -1700,6 +1711,7 @@ def _live_player_rows(team_id: str, rows: List[Dict[str, Any]], minutes_map: Dic
             "FG3_PCT": _format_pct(fg3m, fg3a),
             "FT_PCT": _format_pct(ftm, fta),
             "PF": str(pf),
+            "PIE": f"{pie_pct:.1%}"
         })
     return out
 
@@ -1716,6 +1728,8 @@ def build_live_stats_from_pbp(
 
     """Build four datasets (ucsb_team, ucsb_players, opponent_team, opponent_players) from PBP only."""
     rows = load_pbp_rows(game_id=game_id)
+    game_stats = _compute_live_team_stats(rows)
+    game_pie_denom = calculate_pie_numerator(game_stats)
     ucsb_id = _normalize_team_id_safe(ucsb_team_id or DEFAULT_UCSB_TEAM_ID) or normalize_team_id(DEFAULT_UCSB_TEAM_ID)
     team_ids_in_pbp = set()
     for r in rows:
@@ -1739,7 +1753,7 @@ def build_live_stats_from_pbp(
             rws = _live_team_rows(tid, rows)
             cols = list(LIVE_TEAM_COLUMNS)
         else:
-            rws = _live_player_rows(tid, rows, minutes_map)
+            rws = _live_player_rows(tid, rows, minutes_map, game_pie_denom=game_pie_denom)
             cols = list(LIVE_PLAYER_COLUMNS)
         return {"columns": cols, "rows": rws}
 
