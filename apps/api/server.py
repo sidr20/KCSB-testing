@@ -2924,12 +2924,28 @@ class ApiHandler(BaseHTTPRequestHandler):
 
         if path == '/api/gameids':
             try:
-                games = fetch_json(f'http://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/teams/{DEFAULT_UCSB_TEAM_ID}/events?limit=50&lang=en&region=us')
-                r = []
-                for item in games['items']:
-                    r.append(re.search(r'/events/(40\d+)', item.get('$ref', 'NONONO')).group(1))
-                self._send_json(200, {"games": r})
-            except Exception as exc:  # noqa: BLE001
+                events_list = fetch_json(f'http://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/teams/{DEFAULT_UCSB_TEAM_ID}/events?limit=50&lang=en&region=us')
+                
+                games_with_labels = []
+                for item in events_list.get('items', [])[-15:]:
+                    ref_url = item.get('$ref')
+                    if not ref_url:
+                        continue
+                    
+                    game_id_match = re.search(r'/events/(40\d+)', ref_url)
+                    if game_id_match:
+                        game_id = game_id_match.group(1)
+                        try:
+                            event_data = fetch_json(ref_url)
+                            label = event_data.get('shortName', game_id)
+                            games_with_labels.append({"id": game_id, "label": label})
+                        except:
+                            games_with_labels.append({"id": game_id, "label": game_id})
+                
+                # Sort most recent to top
+                games_with_labels.reverse()
+                self._send_json(200, {"games": games_with_labels})
+            except Exception as exc:
                 self._send_json(500, {"error": str(exc)})
             return
 

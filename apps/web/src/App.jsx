@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import {
   buildPbpFilterQuery,
   canApplyPbpAdvancedFilters,
@@ -196,6 +196,42 @@ function PlayerPerformanceStory({ playerTimeline, teamName, seasonAvg }) {
             <span style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Current Total</span>
             <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{chartData[chartData.length-1].total}</div>
          </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamPieComparison({ liveStats, teamName }) {
+  const chartData = useMemo(() => {
+    return (liveStats?.rows || []).map(row => ({
+      name: row.Player,
+      pie: parseFloat(row.PIE) || 0 
+    })).sort((a, b) => b.pie - a.pie); 
+  }, [liveStats]);
+
+  return (
+    <div className="player-story-card" style={{ height: '100%', padding: '20px' }}>
+      <h3 style={{ margin: '0 0 20px 0', fontSize: '1.1rem', fontWeight: 800 }}>
+        {teamName} Impact Efficiency (PIE)
+      </h3>
+      <div style={{ width: '100%', height: 400 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 30 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(0,0,0,0.05)" />
+            <XAxis type="number" domain={[0, 'auto']} hide />
+            <YAxis 
+              dataKey="name" 
+              type="category" 
+              width={120} 
+              tick={{fill: 'var(--ink)', fontSize: 11, fontWeight: 600}} 
+            />
+            <Tooltip 
+              formatter={(value) => [`${value.toFixed(1)}%`, 'PIE']}
+              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            />
+            <Bar dataKey="pie" fill="var(--accent)" radius={[0, 4, 4, 0]} barSize={20} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -809,6 +845,7 @@ export default function App() {
   const [trendsCollapsed, setTrendsCollapsed] = useState(false);
   const [promptCollapsed, setPromptCollapsed] = useState(false);
   const [selectedStoryPlayerId, setSelectedStoryPlayerId] = useState("");
+  const [insightsView, setInsightsView] = useState("timeline");
   const [savedCollapsed, setSavedCollapsed] = useState(false);
   const [insightsColumnCollapsed, setInsightsColumnCollapsed] = useState(false);
 
@@ -935,7 +972,7 @@ export default function App() {
     try {
       const payload = await fetchJson(`${API_BASE}/api/gameids`, {}, 1);
       setPbpGameOptions(
-        payload.games.map(id => ({ value: id, label: id }))
+        payload.games.map(g => ({ value: g.id, label: g.label }))
       );
     } catch (error) {
       console.error("Error fetching PBP IDs:", error);
@@ -1739,6 +1776,9 @@ export default function App() {
                         } else if (pieValue <= 0.05 && pieValue > 0) {
                           return { backgroundColor: "rgba(255, 0, 0, 0.2)" };
                         }
+                        else if (pieValue < 0) {
+                          return { backgroundColor: "rgba(255, 0, 0, 0.2)" };
+                        }
                         return {};
                       }
                       const seasonTeamRows = seasonPlayers[activeLiveSide].rows;
@@ -1970,7 +2010,23 @@ export default function App() {
           ) : (
             <div className="insights-column">
               <div className="insights-column-header">
-                <span>Individual Player Performance</span>
+                {/* These buttons act as your new tabs */}
+                <div className="tab-switcher" style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    type="button"
+                    className={`leaf ${insightsView === "timeline" ? "active" : ""}`}
+                    onClick={() => setInsightsView("timeline")}
+                  >
+                    Individual Performance
+                  </button>
+                  <button 
+                    type="button"
+                    className={`leaf ${insightsView === "pie-overview" ? "active" : ""}`}
+                    onClick={() => setInsightsView("pie-overview")}
+                  >
+                    Overall Impact
+                  </button>
+                </div>
                 <CollapseButton
                   panelRef={insightsColumnRef}
                   collapsed={insightsColumnCollapsed}
@@ -1980,30 +2036,43 @@ export default function App() {
               </div>
 
               <div className="panel story-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <div style={{ padding: '15px', borderBottom: '1px solid #eee' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                    SELECT PLAYER
-                  </label>
-                  <select 
-                    style={{ width: '100%', padding: '8px' }}
-                    value={selectedStoryPlayerId}
-                    onChange={(e) => setSelectedStoryPlayerId(e.target.value)}
-                  >
-                    <option value="">Choose a player...</option>
-                    {sortedPlayers.map(([id, data]) => (
-                      <option key={id} value={id}>
-                        {data.player_name} ({resolveTeamName(data.team_id)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {insightsView === "timeline" ? (
+                  // VIEW 1: Your original Player Selection and Timeline
+                  <>
+                    <div style={{ padding: '15px', borderBottom: '1px solid #eee' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                        SELECT PLAYER
+                      </label>
+                      <select 
+                        style={{ width: '100%', padding: '8px' }}
+                        value={selectedStoryPlayerId}
+                        onChange={(e) => setSelectedStoryPlayerId(e.target.value)}
+                      >
+                        <option value="">Choose a player...</option>
+                        {sortedPlayers.map(([id, data]) => (
+                          <option key={id} value={id}>
+                            {data.player_name} ({resolveTeamName(data.team_id)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                  <PlayerPerformanceStory 
-                    playerTimeline={trendsPlayerTimelines[selectedStoryPlayerId]}
-                    teamName={resolveTeamName(trendsPlayerTimelines[selectedStoryPlayerId]?.team_id)}
-                  />
-                </div>
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                      <PlayerPerformanceStory 
+                        playerTimeline={trendsPlayerTimelines[selectedStoryPlayerId]}
+                        teamName={resolveTeamName(trendsPlayerTimelines[selectedStoryPlayerId]?.team_id)}
+                      />
+                    </div>
+                  </>
+                ) : (
+             
+                  <div style={{ flex: 1, overflowY: 'auto' }}>
+                    <TeamPieComparison 
+                      liveStats={liveStats[`${activeLivePrefix}_players`]} 
+                      teamName={activeLiveSide === "ucsb" ? ucsbDisplayName : opponentDisplayName} 
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
