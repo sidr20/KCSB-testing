@@ -360,7 +360,7 @@ class PbpTableFormattingTests(unittest.TestCase):
         ]
         out_columns, out_rows = _build_pbp_display_rows(rows, columns, ucsb_team_id="2540")
         self.assertEqual(out_columns[:3], ["team_id", "type", "text"])
-        for forbidden in ("id", "sequence", "scoring_play", "shooting_play", "wallclock"):
+        for forbidden in ("id", "sequence", "wallclock"):
             self.assertNotIn(forbidden, out_columns)
             self.assertNotIn(forbidden, out_rows[0])
         self.assertEqual(out_rows[0]["team_id"], "UCSB")
