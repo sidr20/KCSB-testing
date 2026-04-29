@@ -316,6 +316,74 @@ function normalizeTrendPeriod(periodValue) {
   return "2";
 }
 
+function getPointsFromPbp(row) {
+  const text = String(row.text || "").toLowerCase();
+  const playType = String(row.type || "").toLowerCase();
+  const actorId = String(row.athlete_id || "").trim();
+
+  if (!actorId) return 0;
+  if (text.includes("miss")) return 0;
+
+  if (playType === "madefreethrow" || /makes .*free throw/.test(text)) {
+    return 1;
+  }
+
+  if (
+    /makes .*three point/.test(text) ||
+    /makes .*three pointer/.test(text) ||
+    /makes .*3-pt/.test(text) ||
+    /makes .*3pt/.test(text)
+  ) {
+    return 3;
+  }
+
+  if (text.includes("makes")) {
+    return 2;
+  }
+
+  return 0;
+}
+
+
+function buildCustomPlayerTimeline(rows, playerId, playerName, teamId) {
+  if (!playerId || !rows || rows.length === 0) return null;
+
+  let totalPoints = 0;
+  const pointEvents = [];
+
+  // Iterate through the raw PBP rows
+  rows.forEach((row) => {
+    const rowActorId = String(row.athlete_id || "").trim();
+    
+    if (rowActorId === String(playerId)) {
+      const pts = getPointsFromPbp(row);
+      
+      // If the player scored, record the event and the running total
+      if (pts > 0) {
+        totalPoints += pts;
+        pointEvents.push({
+          timestamp: halfTimestampSeconds(row), 
+          period: normalizeTrendPeriod(row.period),
+          increment: pts,
+          total: totalPoints
+        });
+      }
+    }
+  });
+
+  // Return it in the exact format PlayerPerformanceStory expects!
+  return {
+    player_name: playerName || "Selected Player",
+    team_id: teamId || "",
+    stats: [
+      {
+        stat_key: "points",
+        events: pointEvents
+      }
+    ]
+  };
+}
+
 function parseClockRemainingSeconds(clockValue) {
   const raw = String(clockValue || "").trim();
   const match = raw.match(/^(\d{1,2}):(\d{2})$/);
@@ -949,6 +1017,37 @@ export default function App() {
     map[UCSB_TEAM_ID] = map[UCSB_TEAM_ID] || "UC Santa Barbara";
     return map;
   }, [espnTeams]);
+
+  const allPlayersList = useMemo(() => {
+    const list = [];
+    const datasets = [
+      { rows: liveStats?.ucsb_players?.rows || [], team_id: UCSB_TEAM_ID },
+      { rows: liveStats?.opponent_players?.rows || [], team_id: normalizedOpponentTeamId }
+    ];
+
+    for (const { rows, team_id } of datasets) {
+      for (const row of rows) {
+        const rowKey = String(row?.row_key || "");
+        const playerName = String(row?.Player || "").trim();
+        const match = rowKey.match(/_player_([A-Za-z0-9_-]+)$/);
+        if (!match || !playerName) continue;
+        
+        list.push({
+          id: match[1],
+          name: playerName,
+          team_id: team_id
+        });
+      }
+    }
+
+    return list.sort((a, b) => {
+      const aIsUcsb = a.team_id === UCSB_TEAM_ID;
+      const bIsUcsb = b.team_id === UCSB_TEAM_ID;
+      if (aIsUcsb && !bIsUcsb) return -1;
+      if (!aIsUcsb && bIsUcsb) return 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }, [liveStats, normalizedOpponentTeamId]);
 
   const loadEspnTeams = useCallback(async () => {
     setTeamsLoading(true);
@@ -2037,7 +2136,7 @@ export default function App() {
 
               <div className="panel story-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 {insightsView === "timeline" ? (
-                  // VIEW 1: Your original Player Selection and Timeline
+            
                   <>
                     <div style={{ padding: '15px', borderBottom: '1px solid #eee' }}>
                       <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
@@ -2049,19 +2148,31 @@ export default function App() {
                         onChange={(e) => setSelectedStoryPlayerId(e.target.value)}
                       >
                         <option value="">Choose a player...</option>
-                        {sortedPlayers.map(([id, data]) => (
-                          <option key={id} value={id}>
-                            {data.player_name} ({resolveTeamName(data.team_id)})
+                        {allPlayersList.map((player) => (
+                          <option key={player.id} value={player.id}>
+                            {player.name} ({resolveTeamName(player.team_id)})
                           </option>
                         ))}
                       </select>
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                      <PlayerPerformanceStory 
-                        playerTimeline={trendsPlayerTimelines[selectedStoryPlayerId]}
-                        teamName={resolveTeamName(trendsPlayerTimelines[selectedStoryPlayerId]?.team_id)}
-                      />
+                      {(() => {
+                      
+                        const selectedPlayer = allPlayersList.find(p => p.id === selectedStoryPlayerId);
+                        
+                        return (
+                          <PlayerPerformanceStory 
+                            playerTimeline={buildCustomPlayerTimeline(
+                              pbpData.rows, 
+                              selectedStoryPlayerId, 
+                              selectedPlayer?.name, 
+                              selectedPlayer?.team_id
+                            )}
+                            teamName={resolveTeamName(selectedPlayer?.team_id)}
+                          />
+                        );
+                      })()}
                     </div>
                   </>
                 ) : (
