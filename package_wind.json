@@ -1,0 +1,15 @@
+{
+  "name": "analytics-dashboard-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "setup": "scripts/setup.bat",
+    "dev:api": "scripts/dev-api.bat",
+    "dev:web": "scripts/dev-web.bat",
+    "dev": "scripts/dev.bat",
+    "test:api": "scripts/test-api.bat",
+    "test:web": "scripts/test-web.bat",
+    "test": "npm run test:api && npm run test:web",
+    "test:ci": "scripts/test-ci.bat"
+  }
+}
