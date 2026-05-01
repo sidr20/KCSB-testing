@@ -1689,7 +1689,7 @@ export default function App() {
                 </div>
                 <div className="team-line opponent-line">
                   {espnTeams.length > 0 ? (
-                    <select value={selectedStoryPlayerId} onChange={(e) => selectedStoryPlayerId(e.target.value)}>
+                    <select value={opponentTeamId} onChange={(e) => setOpponentTeamId(e.target.value)}>
                       <option value="">Select ESPN team</option>
                       {espnTeams
                         .filter((team) => normalizeTeamIdInput(team.team_id) !== UCSB_TEAM_ID)
